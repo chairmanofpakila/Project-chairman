@@ -14,6 +14,17 @@ import streamlit as st
 from chairman import core
 
 
+# Configure page early with favicon (logo)
+logo_path = os.path.join(_ROOT, "assets", "chairmanlogo.png")
+st.set_page_config(
+    page_title="The Chairman Project · Fantasy Trade Helper",
+    layout="wide",
+    page_icon=logo_path,
+)
+# Prevent duplicate configuration later if called again
+st.set_page_config = lambda *args, **kwargs: None
+
+
 st.set_page_config(page_title="The Chairman Project · Fantasy Trade Helper", layout="wide")
 
 # Brand banner and subtle heading color
@@ -72,6 +83,10 @@ st.markdown(
 
 # Sidebar controls
 with st.sidebar:
+    # Project logo at the top of the sidebar
+    logo_path = os.path.join(_ROOT, "assets", "chairmanlogo.png")
+    st.image(logo_path, use_container_width=True)
+
     season = st.text_input("Season (e.g. 2025-2026)", value="2025-2026")
     n = st.number_input("Last N games", min_value=1, max_value=30, value=10, step=1)
 
