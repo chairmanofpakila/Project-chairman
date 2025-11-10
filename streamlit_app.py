@@ -14,16 +14,65 @@ import streamlit as st
 from chairman import core
 
 
-st.set_page_config(page_title="Fantasy Trade Helper", layout="wide")
+st.set_page_config(page_title="The Chairman Project · Fantasy Trade Helper", layout="wide")
+
+# Brand banner and subtle heading color
+_PRIMARY = "#CD2500"
+st.markdown(
+    f"""
+    <div style="background:{_PRIMARY};color:white;padding:8px 12px;border-radius:6px;margin-bottom:8px;">
+      <strong>The Chairman Project</strong> — scientific approach for workers' teams facing shady trades from capitalist pigs
+    </div>
+    <style>
+      h1, h2, h3, h4 {{ color: {_PRIMARY}; }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 st.title("Fantasy Trade Helper")
 st.caption(
-    "Compare two teams using last-N games per-player averages (Regular Season)."
+    "Assess a fantasy trade by using last-N games per-player averages (Regular Season)."
+)
+
+
+# Sidebar styling: red background with white text
+st.markdown(
+    f"""
+    <style>
+      [data-testid="stSidebar"] {{
+        background-color: {_PRIMARY};
+      }}
+      [data-testid="stSidebar"] * {{
+        color: #FFFFFF !important;
+      }}
+      /* Inputs in sidebar: white background, black text */
+      [data-testid="stSidebar"] input[type="text"],
+      [data-testid="stSidebar"] input[type="number"],
+      [data-testid="stSidebar"] textarea,
+      [data-testid="stSidebar"] [data-baseweb="input"] input {{
+        background-color: #FFFFFF !important;
+        color: #111111 !important;
+        caret-color: #111111 !important;
+        border: 1px solid rgba(0,0,0,0.25) !important;
+      }}
+      [data-testid="stSidebar"] input::placeholder,
+      [data-testid="stSidebar"] textarea::placeholder {{
+        color: rgba(0,0,0,0.70) !important;
+      }}
+      [data-testid="stSidebar"] .stButton>button {{
+        background-color: #FFFFFF;
+        color: {_PRIMARY};
+        border-color: #FFFFFF;
+      }}
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 
 # Sidebar controls
 with st.sidebar:
-    season = st.text_input("Season (e.g. 2025-26)", value="2025-26")
+    season = st.text_input("Season (e.g. 2025-2026)", value="2025-2026")
     n = st.number_input("Last N games", min_value=1, max_value=30, value=10, step=1)
 
 
@@ -91,7 +140,14 @@ def compute_team_stats_cached(
 
 def roster_editor(label: str, key: str):
     st.subheader(label)
-    qs = st.text_input(f"Search to add ({label})", key=f"search_{key}")
+    # Clearer, trade-oriented prompts
+    if key == "team1":
+        search_label = "Search to add players I trade away"
+    elif key == "team2":
+        search_label = "Search to add players I would receive"
+    else:
+        search_label = f"Search to add ({label})"
+    qs = st.text_input(search_label, key=f"search_{key}")
     if qs:
         matches = cached_search(qs)
         if not matches:
@@ -99,7 +155,7 @@ def roster_editor(label: str, key: str):
         else:
             names = [m["full_name"] for m in matches]
             name_choice = st.selectbox("Pick a player", [""] + names, key=f"pick_{key}")
-            if name_choice and st.button("Add", key=f"add_{key}"):
+            if name_choice and st.button("Add to the trade", key=f"add_{key}"):
                 m = next((m for m in matches if m["full_name"] == name_choice), None)
                 if m:
                     pid = int(m["id"])
@@ -119,9 +175,9 @@ def roster_editor(label: str, key: str):
 
 col1, col2 = st.columns(2)
 with col1:
-    roster_editor("My Team", "team1")
+    roster_editor("Players I trade away", "team1")
 with col2:
-    roster_editor("Team of the opponent", "team2")
+    roster_editor("Players I would receive", "team2")
 
 
 if st.button("Fetch & Compare"):
@@ -138,10 +194,18 @@ if st.button("Fetch & Compare"):
                     st.write("• ", w)
 
         st.subheader("Results")
-        st.write("My Team:")
-        st.json({k: round(v, 3) for k, v in stats1.items()})
-        st.write("Team of the opponent:")
-        st.json({k: round(v, 3) for k, v in stats2.items()})
+        # Team totals table (per-game, last-N window)
+        import pandas as pd
+        cats = ["FG%", "FT%", "3PM", "PTS", "REB", "AST", "STL", "BLK", "TOV"]
+        df_totals = pd.DataFrame(
+            {
+                "My Team": [round(float(stats1.get(c, 0.0)), 3) for c in cats],
+                "Team of the opponent": [round(float(stats2.get(c, 0.0)), 3) for c in cats],
+            },
+            index=cats,
+        )
+        st.write("Team Totals (per-game, last-N window)")
+        st.table(df_totals)
 
         # Comparison table
         st.subheader("Category Comparison (per-game, last-N window)")
@@ -170,12 +234,17 @@ if st.button("Fetch & Compare"):
 
         # Final conclusion
         if my_wins > opp_wins:
-            verdict = "Therefore I win this trade."
+            verdict = "Comrade, you would win this trade. Do it!"
         elif opp_wins > my_wins:
-            verdict = "Therefore I lose this trade."
+            verdict = "Comrade, the capitalists are trying to pull your leg. You lose this trade."
         else:
-            verdict = "Therefore this trade is a tie."
+            verdict = "Comrade, this trade is a tie and leads to peaceful co-existance."
 
-        st.write(
-            f"my team gets better in {my_wins} categories while the opponent gets better in {opp_wins} categories. {verdict}"
+        summary = (
+            f"my team gets better in {my_wins} categories while the opponent gets better in {opp_wins} categories."
+        )
+        st.write(summary)
+        st.markdown(
+            f"<p style='font-size:1.25rem; margin-top:0.5rem; font-weight:700;'>{verdict}</p>",
+            unsafe_allow_html=True,
         )
