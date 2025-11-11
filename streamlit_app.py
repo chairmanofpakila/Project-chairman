@@ -104,8 +104,9 @@ def cached_search(q: str) -> List[dict]:
 
 
 @st.cache_data(ttl=900)
-def cached_player_avg(pid: int, season: str, n: int) -> Dict[str, float]:
-    return core._last_n_averages_by_id(pid, season, n)
+def cached_player_avg(pid: int, name: str, season: str, n: int) -> Dict[str, float]:
+    # Pass full_name to enable HTTP fallback providers if NBA API blocks
+    return core._last_n_averages_by_id(pid, season, n, full_name=name)
 
 
 def compute_team_stats_cached(
@@ -127,7 +128,7 @@ def compute_team_stats_cached(
     warnings: List[str] = []
     for pid, name in roster:
         try:
-            avgs = cached_player_avg(pid, season, n)
+            avgs = cached_player_avg(pid, name, season, n)
         except Exception as e:
             warnings.append(f"Failed to fetch {name}: {e}")
             continue
@@ -231,19 +232,22 @@ if st.button("Fetch & Compare"):
         for c in cats:
             v1 = float(stats1.get(c, 0.0))
             v2 = float(stats2.get(c, 0.0))
+            # Interpret from the perspective of the trade:
+            # If the players I would receive (v2) are stronger than the ones I trade away (v1)
+            # in more categories, then I get better in those categories.
             if c == "TOV":
-                lead = "My Team" if v1 < v2 else ("Team of the opponent" if v2 < v1 else "=")
+                who = "My Team" if v2 < v1 else ("Team of the opponent" if v1 < v2 else "=")
             else:
-                lead = "My Team" if v1 > v2 else ("Team of the opponent" if v2 > v1 else "=")
-            if lead == "My Team":
+                who = "My Team" if v2 > v1 else ("Team of the opponent" if v1 > v2 else "=")
+            if who == "My Team":
                 my_wins += 1
-            elif lead == "Team of the opponent":
+            elif who == "Team of the opponent":
                 opp_wins += 1
             rows.append({
                 "Category": c,
                 "My Team": v1,
                 "Team of the opponent": v2,
-                "Lead": lead,
+                "Who gets better": who,
             })
         st.table(rows)
 
@@ -256,7 +260,7 @@ if st.button("Fetch & Compare"):
             verdict = "Comrade, this trade is a tie and leads to peaceful co-existance."
 
         summary = (
-            f"my team gets better in {my_wins} categories while the opponent gets better in {opp_wins} categories."
+            f"My team gets better in {my_wins} categories while the opponent gets better in {opp_wins} categories."
         )
         st.write(summary)
         st.markdown(
